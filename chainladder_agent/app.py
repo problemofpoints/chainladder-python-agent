@@ -21,7 +21,7 @@ datasets = [
 # Debug flag
 DEBUG = True
 
-def process_query(message, triangle_name, history, api_key):
+def process_query(message, triangle_name, history, api_key, thread_id=None):
     """
     Process user queries using the chainladder agent system.
     
@@ -30,6 +30,7 @@ def process_query(message, triangle_name, history, api_key):
         triangle_name: Selected triangle dataset
         history: Conversation history
         api_key: OpenAI API key
+        thread_id: Optional thread ID for maintaining conversation state
     
     Returns:
         Updated conversation history
@@ -66,12 +67,21 @@ def process_query(message, triangle_name, history, api_key):
             "selected_triangle": triangle_name
         }
         
+        # Use the thread_id if provided, or create a default one
+        # This enables memory persistence across turns
+        config = {}
+        if thread_id:
+            config["configurable"] = {"thread_id": thread_id}
+        else:
+            # When no thread_id is provided, use a simple default
+            config["configurable"] = {"thread_id": "default_thread"}
+        
         if DEBUG:
             print(f"Sending to supervisor with triangle: '{triangle_name}'")
         
-        # Run the supervisor
-        if DEBUG: print("Invoking supervisor...")
-        result = supervisor.invoke(input_data)
+        # Run the supervisor with config for thread_id
+        if DEBUG: print("Sending to supervisor with triangle: '{}'".format(triangle_name))
+        result = supervisor.invoke(input_data, config=config)
         if DEBUG: print("Supervisor invoked successfully")
         
         # Extract the response
@@ -142,101 +152,116 @@ def process_query(message, triangle_name, history, api_key):
 def launch_app():
     """Launch the Gradio interface for the chainladder agent."""
     with gr.Blocks(title="Chainladder AI Assistant") as app:
+        # Header and title
+        gr.HTML("<h1 style='text-align: center; margin-bottom: 10px;'>Chainladder AI Assistant</h1>")
+        gr.HTML("<p style='text-align: center; margin-bottom: 20px;'>An AI assistant for actuarial analysis using the chainladder package</p>")
+        
+        # API key input in a small row at the top
         with gr.Row():
-            with gr.Column():
-                # Header and title
-                gr.HTML("<h1>Chainladder AI Assistant</h1>")
-                gr.HTML("<p>An AI assistant for actuarial analysis using the chainladder package</p>")
-                
-                # API key input
-                api_key = gr.Textbox(
-                    label="OpenAI API Key", 
-                    placeholder="Enter your OpenAI API key here", 
-                    value=os.environ.get("OPENAI_API_KEY", ""),
-                    type="password"
-                )
-                
-                # Simple chatbot with tuples format
-                chatbot = gr.Chatbot(
-                    height=500, 
-                    label="Conversation",
-                    bubble_full_width=False,
-                    show_copy_button=True,
-                    value=[[None, "Welcome to Chainladder AI Assistant! I can help you with actuarial analyses using the chainladder package. Ask me a question!"]]
-                )
-                
-                # Input and submit
-                with gr.Row():
-                    message = gr.Textbox(
-                        label="Ask about actuarial analysis", 
-                        placeholder="Example: Analyze the raa triangle using chain ladder method",
-                        scale=9
-                    )
-                    submit = gr.Button("Send", scale=1)
-                
-                clear = gr.Button("Clear Chat")
-                
-            with gr.Column(scale=2):
-                triangle = gr.Dropdown(
-                    choices=datasets, 
-                    value=datasets[0],
-                    label="Select Sample Triangle",
-                    info="Choose from available sample triangles in chainladder",
-                    allow_custom_value=True
-                )
-                
-                gr.Markdown("""
-                ## Available Sample Triangles
-                
-                Some commonly used triangles:
-                - `raa`: Classic RAA reinsurance triangle
-                - `abc`: ABC Company dataset
-                - `ukmotor`: UK Motor triangle
-                - `genins`: General Insurance triangle
-                
-                See the [chainladder documentation](https://chainladder-python.readthedocs.io/) for more details.
-                """)
+            api_key = gr.Textbox(
+                label="OpenAI API Key", 
+                placeholder="Enter your OpenAI API key here", 
+                value=os.environ.get("OPENAI_API_KEY", ""),
+                type="password"
+            )
+        
+        # Main chat interface - full width
+        with gr.Row():
+            # Simple chatbot with full-screen format
+            chatbot = gr.Chatbot(
+                height=600, 
+                label="Conversation",
+                bubble_full_width=False,
+                show_copy_button=True,
+                value=[[None, "Welcome to Chainladder AI Assistant! I can help you with actuarial analyses using the chainladder package. You can reference any triangle by name in your questions (e.g., 'Analyze the raa triangle')."]]
+            )
+        
+        # Input and submit
+        with gr.Row():
+            message = gr.Textbox(
+                label="", 
+                placeholder="Ask Chainladder AI",
+                scale=9,
+                show_label=False,
+                container=False
+            )
+            submit = gr.Button("Send", scale=1)
+        
+        with gr.Row():
+            clear = gr.Button("Clear Chat")
+        
+        # Triangle selection and info moved below the chat
+        with gr.Row():
+            # Sample triangles info
+            gr.Markdown("""
+            ## Available Sample Triangles (Optional Reference)
+            You can reference any of these triangles directly in your questions without selecting them below.
+            For example: "Show me development factors for the ukmotor triangle" or "Analyze genins using Mack Chain Ladder".
+            
+            - `raa`: Classic RAA reinsurance triangle - cumulative paid losses
+            - `abc`: ABC Company dataset - cumulative losses
+            - `ukmotor`: UK Motor triangle - cumulative claim amounts
+            - `genins`: General Insurance triangle - incremental paid claims
+            - `quarterly`: Quarterly development data with incurred and paid values
+            - `auto`: Auto insurance data with features for both incurred and paid losses
+            
+            See the [chainladder documentation](https://chainladder-python.readthedocs.io/) for more details.
+            """)
         
         # Examples section
-        gr.Markdown("## Examples")
+        gr.Markdown("## Example Tasks")
         examples = gr.Examples(
             examples=[
-                ["What sample triangles are available in the chainladder package?", datasets[0]],
-                ["Analyze the raa triangle using the chain ladder method", "raa"],
-                ["Compare chainladder and Bornhuetter-Ferguson methods on the abc triangle", "abc"],
-                ["Create development factor charts for the ukmotor triangle", "ukmotor"],
-                ["Explain what IBNR means in actuarial science", datasets[0]],
-                ["Create diagnostic plots for the clrd triangle", "clrd"],
+                ["What sample triangles are available in the chainladder package?"],
+                ["Analyze the raa triangle using the chain ladder method"],
+                ["Compare chainladder and Bornhuetter-Ferguson methods on the abc triangle"],
+                ["Create development factor charts for the ukmotor triangle"],
+                ["Explain what IBNR means in actuarial science"],
+                ["Create diagnostic plots for the clrd triangle"],
             ],
-            inputs=[message, triangle]
+            inputs=[message]
         )
         
         # Define simple callback function (no generator)
-        def on_submit(msg, triangle_name, history, key):
+        def on_submit(msg, history, key):
             if not msg.strip():
                 return history, gr.update(value="")
             
             # Process the query
-            new_history = process_query(msg, triangle_name, history, key)
+            # Extract triangle name from message if possible
+            triangle_name = None  # Default to None
+            
+            # Try to detect triangle name from message
+            for dataset in datasets:
+                if dataset.lower() in msg.lower():
+                    triangle_name = dataset
+                    break
+                    
+            # Get or create a thread ID based on the history
+            # This ensures conversation continuity
+            thread_id = "user_thread_" + str(hash(str(history)) if history else "new")
+            
+            # Process the query with thread_id for memory persistence
+            new_history = process_query(msg, triangle_name, history, key, thread_id)
             return new_history, gr.update(value="")
         
         # Attach event handlers
         submit.click(
             fn=on_submit,
-            inputs=[message, triangle, chatbot, api_key],
+            inputs=[message, chatbot, api_key],
             outputs=[chatbot, message],
         )
 
         # Also trigger on Enter key
         message.submit(
             fn=on_submit,
-            inputs=[message, triangle, chatbot, api_key],
+            inputs=[message, chatbot, api_key],
             outputs=[chatbot, message],
         )
         
         # Simple clear chat button
         clear.click(
-            fn=lambda: [[None, "Welcome to Chainladder AI Assistant! I can help you with actuarial analyses using the chainladder package. Ask me a question!"]],
+            fn=lambda: [[None, "Welcome to Chainladder AI Assistant! I can help you with loss reserving using the chainladder package. Ask me a question!"]],
             inputs=None,
             outputs=chatbot,
             queue=False

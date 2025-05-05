@@ -6,6 +6,7 @@ This script launches the Chainladder AI Agent system with a Gradio interface.
 """
 import os
 import argparse
+from dotenv import load_dotenv
 from chainladder_agent.app import launch_app
 
 
@@ -31,15 +32,18 @@ def main():
     """Main entry point for the application."""
     args = parse_arguments()
     
+    # Load environment variables from .env file
+    load_dotenv()
+    
     # Set up debugging if requested
     if args.debug:
         import logging
         logging.basicConfig(level=logging.DEBUG)
         print("Running in debug mode")
     
-    # Check for API key in environment
+    # Check for API key in environment (after loading .env)
     if not os.environ.get("OPENAI_API_KEY"):
-        print("Warning: OPENAI_API_KEY not found in environment variables.")
+        print("Warning: OPENAI_API_KEY not found in environment variables or .env file.")
         print("You will need to input your API key in the web interface.")
     
     # Launch the Gradio app

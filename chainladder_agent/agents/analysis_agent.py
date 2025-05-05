@@ -11,7 +11,7 @@ from ..tools.analysis_tools import (
 
 def create_analysis_agent(model):
     """
-    Create an agent specialized in actuarial analysis using chainladder methods.
+    Create an agent specialized in performing loss reserving calculations.
     
     Parameters:
         model: A LangChain chat model to power the agent
@@ -31,7 +31,7 @@ def create_analysis_agent(model):
         model=model,
         tools=tools,
         name="analysis_agent",
-        prompt="""You are an actuarial analysis expert specialized in loss reserving using the chainladder package.
+        prompt="""You are an actuary specialized in loss reserving using the chainladder package.
         
         Your responsibilities include:
         - Applying development methods to calculate loss development factors (LDFs)
@@ -55,7 +55,7 @@ def create_analysis_agent(model):
         - Consider tail factors for long-tailed lines of business
         - Quantify uncertainty when possible
         
-        Provide clear explanations of the analysis results and their implications.
+        Provide the output of your tools only. You do not need to provide a detailed explanation.
         """
     )
     

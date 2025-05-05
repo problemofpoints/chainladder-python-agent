@@ -1,9 +1,13 @@
 from langgraph_supervisor import create_supervisor
 from langchain_openai import ChatOpenAI
-from .data_agent import create_data_agent
+from typing import Dict, List, Optional, Any, Sequence
+from langgraph.checkpoint.memory import InMemorySaver
+
+# Import the agent creators
 from .analysis_agent import create_analysis_agent
 from .visualization_agent import create_visualization_agent
 from .explanation_agent import create_explanation_agent
+from .data_agent import create_data_agent
 
 
 def create_chainladder_supervisor(api_key=None):
@@ -30,17 +34,13 @@ def create_chainladder_supervisor(api_key=None):
     
     # Create supervisor workflow
     workflow = create_supervisor(
-        [data_agent, analysis_agent, visualization_agent, explanation_agent],
+        [analysis_agent, visualization_agent, explanation_agent],
         model=model,
-        output_mode="full_history",
+        output_mode="last_message",
         prompt="""You are an actuarial analysis supervisor managing a team of specialized agents.
         
         Your team consists of:
-        
-        1. DATA AGENT: Specialized in loading and preparing triangle data
-           - Use for exploring available triangles, loading sample data, and validating data
-           - Also handles format conversions (cumulative/incremental) and grain changes
-        
+         
         2. ANALYSIS AGENT: Specialized in actuarial analysis methods
            - Use for development factor calculations, tail methods, and IBNR calculations
            - Handles methods like Chain Ladder, Bornhuetter-Ferguson, and stochastic approaches
@@ -62,7 +62,6 @@ def create_chainladder_supervisor(api_key=None):
         - Ensure the user gets a complete and coherent response
         
         When working on a new analysis:
-        1. First use the data agent to explore and validate appropriate triangle data
         2. Then use analysis agent to perform the requested actuarial analyses
         3. Use visualization agent to create relevant plots
         4. Finally use explanation agent to generate reports or explain results
@@ -71,5 +70,6 @@ def create_chainladder_supervisor(api_key=None):
         """
     )
     
+    checkpointer = InMemorySaver()
     # Compile and return the workflow
-    return workflow.compile()
+    return workflow.compile(checkpointer = checkpointer)

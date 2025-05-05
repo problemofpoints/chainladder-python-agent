@@ -117,6 +117,8 @@ class IBNRResult(BaseModel):
     ultimate_losses: Dict[str, Any] = Field(default_factory=dict)
     ibnr_estimates: Dict[str, Any] = Field(default_factory=dict)
     latest_diagonal: Dict[str, Any] = Field(default_factory=dict)
+    total_ultimate_losses: Optional[float] = None
+    total_ibnr: Optional[float] = None
     std_err: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
 
